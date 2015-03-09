@@ -1,0 +1,170 @@
+---
+title: "Analysing steps per day"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+```
+
+
+This is a document for the Peer Assessmentof the Reproducible Research course from coursera.
+
+```{r, echo=TRUE}
+
+data <-  read.csv(file = "activity.csv", stringsAsFactors = FALSE)
+original_data <- data
+```
+
+We got only the complete cases
+
+```{r, echo=TRUE}
+data <- data[complete.cases(data),]
+data$date <- as.Date(data$date)
+```
+
+
+Afeter processing data with dplyr we can show the total steps per day:
+
+```{r, echo=TRUE}
+data_total_steps <- select(data, steps, date) %>%
+                  group_by(date) %>%
+                  summarise(sum_steps_day = sum(steps) )
+
+data_total_steps
+```
+
+We can show our findings with two similars plots. The frist one is the bar plot where we use a catergorical data to show our findings. The second one is the histogram, we´ll use a continous data to represent our findings with it:
+
+```{r, echo=TRUE}
+ggplot(data=data_total_steps, aes(x=date, y=sum_steps_day, fill=sum_steps_day)) + 
+    geom_histogram(stat="identity") +
+    xlab("Date") + ylab("Total Steps") +
+    ggtitle("Total Steps by Day Histogram")
+```
+
+We calculate the mean and the median for the data.
+
+```{r, echo=TRUE}
+
+
+data_mean_median_steps <- select(data, steps, date) %>%
+                            group_by(date) %>%
+                            summarise(mean_steps_day = mean(steps), median_steps_day = median(steps) )
+
+      
+data_mean_median_steps
+```
+
+Now we´ll prepare the data to calculate the avarage number of steps grouped by 5-minute interval:
+
+```{r, echo=TRUE}
+data_5_minutes_interval <- group_by(data, interval) %>%
+                            summarise(mean_steps = mean(steps))
+
+data_5_minutes_interval
+```                         
+
+Let´s just put it into a time series plot.
+
+```{r, echo=TRUE}
+
+ggplot(data_5_minutes_interval, aes(x = mean_steps, y = interval)) +
+    geom_line() +
+    xlab("Mean Steps") + ylab("Interval") +
+    ggtitle("Time Series: Mean steps in 5 min Interval")
+
+
+```
+
+Until now we used only the complete cases, but let´s do something different.
+
+Let´s calculate the total missing values:
+
+```{r, echo=TRUE}
+
+missing_values <- sum(!complete.cases(original_data))
+missing_values
+```
+
+We choosed to fill those lines with the mean of total steps
+
+```{r, echo=TRUE}
+
+mean_steps <- mean(data$steps)
+
+original_data[!complete.cases(original_data), 1] <- mean_steps
+
+```
+
+Let´s so calculate the new value of total steps:
+
+```{r}
+original_data_total_steps <- select(original_data, steps, date) %>%
+                  group_by(date) %>%
+                  summarise(sum_steps_day = sum(steps) )
+
+original_data_total_steps
+```
+
+
+Now let´s see it in a histogram:
+
+```{r, echo=TRUE}
+ggplot(data=original_data_total_steps, aes(x=date, y=sum_steps_day, fill=sum_steps_day)) + 
+    geom_histogram(stat="identity") +
+    xlab("Date") + ylab("Total Steps") +
+    ggtitle("Total Steps by Day Histogram")
+```
+
+And calculate the mean and the median for the data.
+
+```{r, echo=TRUE}
+
+
+original_data_mean_median_steps <- select(original_data, steps, date) %>%
+                            group_by(date) %>%
+                            summarise(mean_steps_day = mean(steps), median_steps_day = median(steps) )
+
+      
+original_data_mean_median_steps
+```
+
+As we can see there were missing blocs in the first histogram that now were filled.
+
+Now let´s see f thereare differences between weekends and weekdays.
+
+We´ll now create a new table with one more variables, that will be a factor with two levels "weekday" and "weekend", lets name it type_day.
+
+As I´m brazlian, the weekend days are named "sábado" and "domingo", equivalent to "saturday" and "sunday".
+
+```{r, echo=TRUE}
+
+
+original_data_weekdays <- mutate(original_data, 
+                                          type_day = ifelse(weekdays(as.Date(date)) == "sábado" 
+                                                            | weekdays(as.Date(date)) == "domingo", 
+                                                            "weekend", "weekday")) %>%
+                                  mutate(type_day = as.factor(type_day))
+                                
+
+
+      
+```
+
+Now let´s make a time series plot of the mean steps taken in determined interval on weekends and weekdays:
+
+```{r, echo=TRUE}
+original_data_5_min_weekdays <- group_by(original_data_weekdays, interval, type_day) %>%
+                                summarise(mean_steps = mean(steps))
+
+
+ggplot(original_data_5_min_weekdays, aes(x = mean_steps, y = interval, fill = type_day, color = type_day)) +
+    geom_line() +
+    xlab("Mean Steps") + ylab("Interval") +
+    ggtitle("Time Series: Mean steps in 5 min Interval on Weekends and Weekdays")
+```
+
